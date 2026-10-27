@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { hasAccess } from "@/lib/access-control";
 
 export async function GET(_request, { params }) {
   try {
+    if (!await hasAccess("create")) return NextResponse.json({ error: "Test creation access required." }, { status: 401 });
     const { id } = await params;
     const { data, error } = await getSupabase().from("tests").select("*").eq("id", id).single();
     if (error) throw error;
@@ -14,6 +16,7 @@ export async function GET(_request, { params }) {
 
 export async function PATCH(request, { params }) {
   try {
+    if (!await hasAccess("create")) return NextResponse.json({ error: "Test creation access required." }, { status: 401 });
     const { id } = await params;
     const test = await request.json();
     if (!test.title?.trim() || !Array.isArray(test.questions) || !test.questions.length || !Number(test.duration_minutes)) {

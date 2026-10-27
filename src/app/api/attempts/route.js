@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { scoreNeetAttempt } from "@/lib/test-scoring";
+import { hasAccess } from "@/lib/access-control";
 
 export async function GET() {
   try {
@@ -17,6 +18,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    if (!await hasAccess("tests")) return NextResponse.json({ error: "Test access required." }, { status: 401 });
     const { test_id, answers } = await request.json();
     const { data: test, error: testError } = await getSupabase().from("tests").select("id,title,questions").eq("id", test_id).single();
     if (testError) throw testError;
