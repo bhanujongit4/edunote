@@ -2,8 +2,45 @@ export const SUBJECT_DOCUMENTS = {
   physics: {
     name: "Physics",
     htmlPath: "/physics-board.html",
+    description: "A focused workspace for lessons, diagrams, and equations.",
+    symbol: "ϕ",
+  },
+  chemistry: {
+    name: "Chemistry",
+    htmlPath: "/chemistry-board.html",
+    description: "Explore reactions, structures, and the building blocks of matter.",
+    symbol: "⚗",
+  },
+  maths: {
+    name: "Maths",
+    htmlPath: "/math-board.html",
+    description: "Work through patterns, proofs, and mathematical ideas.",
+    symbol: "π",
   },
 };
+
+function locateFormulaObject(html) {
+  const assignment = /\bFORM\s*=\s*/.exec(html);
+  if (!assignment) return null;
+
+  const start = assignment.index + assignment[0].length;
+  let depth = 0;
+  let quote = "";
+  let escaped = false;
+  for (let index = start; index < html.length; index += 1) {
+    const character = html[index];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === quote) quote = "";
+      continue;
+    }
+    if (character === "'" || character === '"') quote = character;
+    else if (character === "{") depth += 1;
+    else if (character === "}" && --depth === 0) return { start, end: index + 1 };
+  }
+  return null;
+}
 
 function decodeJsString(token) {
   const quote = token[0];
@@ -18,10 +55,10 @@ function decodeJsString(token) {
 }
 
 export function parseFormulaObject(html) {
-  const declaration = html.match(/\bconst\s+FORM\s*=\s*(\{[\s\S]*?\n\s*\});/);
-  if (!declaration) throw new Error("Could not find a const FORM object in this subject HTML.");
+  const range = locateFormulaObject(html);
+  if (!range) throw new Error("Could not find a FORM object in this subject HTML.");
 
-  const tokens = declaration[1].match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[{}\[\]:,]|[^\s{}\[\]:,]+/g) ?? [];
+  const tokens = html.slice(range.start, range.end).match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[{}\[\]:,]|[^\s{}\[\]:,]+/g) ?? [];
   let index = 0;
   const peek = () => tokens[index];
   const take = (expected) => {
@@ -57,7 +94,8 @@ export function parseFormulaObject(html) {
 }
 
 export function replaceFormulaObject(html, form) {
-  const declaration = /\bconst\s+FORM\s*=\s*\{[\s\S]*?\n\s*\};/;
-  if (!declaration.test(html)) throw new Error("Could not find a replaceable const FORM object in this subject HTML.");
-  return html.replace(declaration, `const FORM=${JSON.stringify(form, null, 2)};`);
+  const range = locateFormulaObject(html);
+  if (!range) throw new Error("Could not find a replaceable FORM object in this subject HTML.");
+  return (html.slice(0, range.start) + JSON.stringify(form, null, 2) + html.slice(range.end))
+    .replace(/\s*<a\b(?=[^>]*\bid=["']customizeLink["'])[^>]*>[\s\S]*?<\/a>/i, "");
 }
